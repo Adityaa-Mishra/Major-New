@@ -15,7 +15,7 @@ const io = new Server(server, {
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
-app.use(express.static(path.join(__dirname, '../frontend')));
+// app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
@@ -28,9 +28,9 @@ app.use('/api/chat', require('./routes/chat'));
 require('./socket')(io);
 app.set('io', io);
 
-// Serve frontend
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/index.html'));
+//server test route
+app.get('/', (req, res) => {
+  res.send("API is running 🚀");
 });
 
 // Connect DB & start server
