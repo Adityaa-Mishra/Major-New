@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Provider Profile — MyHome Worker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/animations.css" />
+</head>
+<body>
+<nav class="navbar scrolled">
+  <div class="nav-inner">
+    <a href="/" class="logo"><span class="logo-icon">⚡</span><span>MyHome<strong>Worker</strong></span></a>
+    <div class="nav-links"><a href="providers.html">← Back to Providers</a></div>
+    <div class="nav-actions" id="navActions">
+      <a href="login.html" class="btn-ghost">Log In</a>
+      <a href="signup.html" class="btn-primary">Sign Up</a>
+    </div>
+  </div>
+</nav>
+
+<div style="padding-top:90px;max-width:900px;margin:0 auto;padding-left:24px;padding-right:24px;padding-bottom:60px;">
+  <div id="profileContent"><div style="text-align:center;padding:60px;color:var(--text-3);"><div class="spinner" style="margin:0 auto 16px;"></div><p>Loading profile...</p></div></div>
+</div>
+
+<!-- BOOKING MODAL -->
+<div class="modal-overlay" id="bookingModal">
+  <div class="modal">
+    <div class="modal-header"><h3>Book <span id="modalName"></span></h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div id="loginPrompt" style="display:none;text-align:center;padding:20px 0;">
+      <div style="font-size:2rem;margin-bottom:12px;">🔐</div>
+      <p style="margin-bottom:16px;">Please login to book</p>
+      <a href="login.html" class="btn-primary">Login</a>
+    </div>
+    <div id="bookingForm">
+      <div class="form-group"><label>Service</label>
+        <select id="bService"><option value="">Select...</option><option value="electrician">⚡ Electrical</option><option value="plumber">🔧 Plumbing</option><option value="cleaner">🧹 Cleaning</option><option value="carpenter">🪚 Carpentry</option><option value="painter">🖌️ Painting</option><option value="ac_repair">❄️ AC Repair</option><option value="other">🛠️ Other</option></select>
+      </div>
+      <div class="form-group"><label>Description</label><textarea id="bDesc" rows="3" placeholder="What needs to be done?"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>Date</label><input type="date" id="bDate" /></div>
+        <div class="form-group"><label>Time</label><input type="time" id="bTime" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Address</label><input type="text" id="bAddr" placeholder="Full address" /></div>
+        <div class="form-group"><label>Hours</label><input type="number" id="bHrs" min="1" max="12" value="2" /></div>
+      </div>
+      <div class="booking-summary">
+        <div class="booking-summary-row"><span>Rate</span><span id="sRate">₹0/hr</span></div>
+        <div class="booking-summary-row"><span>Hours</span><span id="sHrs">2</span></div>
+        <div class="booking-summary-row"><span>Total</span><span id="sTotal">₹0</span></div>
+      </div>
+      <button class="btn-primary btn-full" onclick="submitBooking()">Confirm Booking</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+const providerId = new URLSearchParams(window.location.search).get('id');
+let providerRate = 0;
+
+// Update nav
+const loggedUser = api.getUser();
+if (loggedUser) {
+  const dash = loggedUser.role === 'provider' ? 'provider-dashboard.html' : 'user-dashboard.html';
+  document.getElementById('navActions').innerHTML = `<a href="${dash}" class="btn-ghost">Dashboard</a><button onclick="logout()" class="btn-primary">Logout</button>`;
+}
+
+document.getElementById('bHrs').addEventListener('input', calcTotal);
+
+async function loadProfile() {
+  if (!providerId) { document.getElementById('profileContent').innerHTML = '<div class="empty-state"><p>Provider not found</p></div>'; return; }
+  try {
+    const data = await api.getProvider(providerId);
+    const p = data.provider;
+    const u = p.user || {};
+    providerRate = p.hourlyRate || 0;
+    const initials = u.name ? u.name.split(' ').map(n=>n[0]).join('').toUpperCase() : '?';
+
+    document.title = `${u.name} — MyHome Worker`;
+
+    document.getElementById('profileContent').innerHTML = `
+      <div class="profile-hero">
+        <div class="profile-hero-inner">
+          <div class="profile-avatar-lg">
+            ${u.avatar ? `<img src="${u.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />` : initials}
+            <span class="online-dot ${u.isOnline?'online':'offline'}" style="position:absolute;bottom:4px;right:4px;width:16px;height:16px;border:3px solid rgba(255,255,255,.4);border-radius:50%;background:${u.isOnline?'#22c55e':'#94a3b8'};"></span>
+          </div>
+          <div class="profile-info">
+            <h2>${u.name || 'Provider'}</h2>
+            <div class="profile-category">${categoryIcon(p.category)} ${categoryLabel(p.category)} · ${p.experienceYears || 0} yrs experience</div>
+            <div class="profile-location">📍 ${p.location || u.location || 'Location not set'}</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;">
+              <span style="font-size:1rem;color:#fbbf24;">${renderStars(p.avgRating||0)} <strong style="color:#fff;">${p.avgRating||'—'}</strong></span>
+              <span style="font-size:.85rem;opacity:.8;">(${p.reviews?.length||0} reviews)</span>
+              <span style="font-size:.85rem;opacity:.8;">✅ ${p.completedJobs||0} jobs done</span>
+            </div>
+            <div class="profile-badges">
+              <span class="profile-badge-item">₹${providerRate}/hr</span>
+              <span class="profile-badge-item" style="background:${p.availability?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'};">${p.availability?'✓ Available':'✗ Busy'}</span>
+              ${u.isOnline?'<span class="profile-badge-item" style="background:rgba(34,197,94,.2);">🟢 Online now</span>':''} 
+            </div>
+          </div>
+          <div class="profile-actions">
+            ${(loggedUser?.role==='user') ? `<button class="btn-white" onclick="openBooking()">📅 Book Now</button><button class="btn-outline-white" onclick="chatProvider()">💬 Message</button>` : `<a href="login.html" class="btn-white">Login to Book</a>`}
+          </div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div>
+          <div class="card" style="margin-bottom:20px;">
+            <div class="card-header"><h3>About</h3></div>
+            <p style="font-size:.92rem;color:var(--text-2);line-height:1.7;">${p.bio || 'No description provided yet.'}</p>
+          </div>
+          <div class="card" style="margin-bottom:20px;">
+            <div class="card-header"><h3>Skills</h3></div>
+            <div class="skills-list">${p.skills?.length ? p.skills.map(s=>`<span class="skill-tag">${s}</span>`).join('') : '<p style="color:var(--text-3);font-size:.88rem;">No skills listed</p>'}</div>
+          </div>
+          <div class="card" style="margin-bottom:20px;">
+            <div class="card-header"><h3>Work Showcase</h3></div>
+            ${p.portfolio?.length ? p.portfolio.slice().reverse().map(item => `
+              <div style="padding:14px 0;border-bottom:1px solid var(--border-light);">
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+                  <strong style="font-size:.92rem;">${item.title || 'Work'}</strong>
+                  <small style="color:var(--text-3);white-space:nowrap;">${formatDate(item.createdAt)}</small>
+                </div>
+                ${item.description ? `<p style="font-size:.86rem;color:var(--text-2);margin-top:6px;">${item.description}</p>` : ''}
+                <div style="margin-top:10px;">
+                  ${item.mediaType === 'video'
+                    ? `<video controls style="width:100%;max-height:260px;border-radius:10px;background:#000;"><source src="${resolveMedia(item.mediaUrl)}" /></video>`
+                    : `<img src="${resolveMedia(item.mediaUrl)}" alt="${item.title || 'work'}" style="width:100%;max-height:260px;border-radius:10px;object-fit:cover;" />`
+                  }
+                </div>
+                <div style="margin-top:8px;">
+                  <a href="${resolveMedia(item.mediaUrl)}" target="_blank" rel="noopener noreferrer" class="btn-ghost" style="font-size:.8rem;padding:6px 12px;display:inline-flex;">Open in New Tab</a>
+                </div>
+              </div>`).join('') : '<p style="color:var(--text-3);font-size:.88rem;">No work samples posted yet.</p>'}
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Contact Info</h3></div>
+            <div style="font-size:.9rem;color:var(--text-2);display:flex;flex-direction:column;gap:10px;">
+              <div>📧 ${u.email}</div>
+              ${u.phone?`<div>📞 ${u.phone}</div>`:''}
+              <div>📍 ${p.location || 'Not set'}</div>
+              <div>🕒 ${u.isOnline ? 'Online now' : 'Last seen recently'}</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-header">
+              <h3>Reviews <span style="font-size:.85rem;font-weight:400;color:var(--text-3);">(${p.reviews?.length||0})</span></h3>
+            </div>
+            ${p.reviews?.length ? p.reviews.map(r => `
+              <div class="review-card">
+                <div class="review-header">
+                  <div class="review-avatar">${r.userName?.[0]?.toUpperCase()||'?'}</div>
+                  <div class="review-meta">
+                    <strong>${r.userName||'User'}</strong>
+                    <small>${formatDate(r.createdAt)}</small>
+                  </div>
+                  <div class="review-stars" style="margin-left:auto;">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
+                </div>
+                ${r.comment?`<p class="review-text">${r.comment}</p>`:''}
+              </div>`).join('') : '<div class="empty-state"><div class="empty-icon">⭐</div><p>No reviews yet</p></div>'}
+          </div>
+        </div>
+      </div>`;
+  } catch(e) {
+    document.getElementById('profileContent').innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><p>Could not load profile</p></div>';
+  }
+}
+
+function openBooking() {
+  const u = api.getUser();
+  document.getElementById('modalName').textContent = '';
+  document.getElementById('loginPrompt').style.display = (!u || u.role !== 'user') ? 'block' : 'none';
+  document.getElementById('bookingForm').style.display = (u && u.role === 'user') ? 'block' : 'none';
+  document.getElementById('sRate').textContent = `₹${providerRate}/hr`;
+  calcTotal();
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('bDate').min = today;
+  document.getElementById('bookingModal').classList.add('open');
+}
+function closeModal() { document.getElementById('bookingModal').classList.remove('open'); }
+function calcTotal() {
+  const hrs = parseInt(document.getElementById('bHrs').value)||1;
+  document.getElementById('sHrs').textContent = hrs;
+  document.getElementById('sTotal').textContent = `₹${providerRate*hrs}`;
+}
+async function submitBooking() {
+  const service=document.getElementById('bService').value, description=document.getElementById('bDesc').value, scheduledDate=document.getElementById('bDate').value, scheduledTime=document.getElementById('bTime').value, address=document.getElementById('bAddr').value, estimatedHours=document.getElementById('bHrs').value;
+  if (!service||!scheduledDate||!scheduledTime||!address) { toast('Please fill all required fields','error'); return; }
+  try {
+    await api.createBooking({ providerId, service, description, scheduledDate, scheduledTime, address, estimatedHours });
+    toast('Booking sent successfully!','success');
+    closeModal();
+  } catch(e) { toast(e.message,'error'); }
+}
+function chatProvider() { window.location.href = `chat.html?with=${providerId}`; }
+
+function resolveMedia(url) {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  const host = API_BASE.replace('/api', '');
+  return `${host}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+document.getElementById('bookingModal').addEventListener('click', e => { if (e.target.id==='bookingModal') closeModal(); });
+
+loadProfile();
+</script>
+</body>
+</html>

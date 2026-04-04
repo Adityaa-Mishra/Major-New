@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — MyHome Worker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/animations.css" />
+</head>
+<body>
+<!-- NAVBAR -->
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <a href="../index.html" class="logo"><span class="logo-icon">âš¡</span><span>MyHome<strong>Worker</strong></span></a>
+        <div class="nav-links" style="display:none;">
+      <a href="../index.html">Home</a>
+      <a href="#" onclick="showPage('overview'); return false;">Overview</a>
+      <a href="#" onclick="showPage('bookings'); return false;">My Bookings</a>
+      <a href="#" onclick="showPage('browse'); return false;">Browse Workers</a>
+      <a href="chat.html">Messages</a>
+      <a href="#" onclick="showPage('settings'); return false;">Settings</a>
+    </div>
+    <div class="nav-actions" style="margin-left:auto;">
+      <a href="providers.html" class="btn-ghost">Find Workers</a>
+      <button onclick="logout()" class="btn-primary">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="dashboard-layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="sidebarAvatar">👤</div>
+      <strong id="sidebarName">Loading...</strong>
+      <span id="sidebarEmail"></span>
+      <div><span class="role-chip">Customer</span></div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-item active" onclick="window.location.href='../index.html'"><span class="icon">🏠</span> Home</div>
+      <div class="nav-item" onclick="showPage('overview')"><span class="icon">📊</span> Overview</div>
+      <div class="nav-item" onclick="showPage('bookings')"><span class="icon">📅</span> My Bookings</div>
+      <div class="nav-item" onclick="showPage('browse')"><span class="icon">🔍</span> Browse Workers</div>
+      <div class="nav-item" onclick="window.location.href='chat.html'"><span class="icon">💬</span> Messages</div>
+      <div class="nav-item" onclick="showPage('settings')"><span class="icon">⚙️</span> Settings</div>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="logout-btn" onclick="logout()">🚪 Logout</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content" id="mainContent">
+    <!-- OVERVIEW -->
+    <div id="page-overview" class="page-transition">
+      <div class="page-header">
+        <h1>Welcome back, <span id="headerName">—</span>! 👋</h1>
+        <p>Here's what's happening with your home services today.</p>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total Bookings</div></div>
+        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="statPending">0</div><div class="stat-label">Pending</div></div>
+        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="statCompleted">0</div><div class="stat-label">Completed</div></div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <div class="card-header"><h3>Recent Bookings</h3><a href="#" onclick="showPage('bookings')" style="font-size:.85rem;color:var(--primary);font-weight:600;">View all</a></div>
+          <div id="recentBookings"><div class="empty-state"><div class="empty-icon">📅</div><p>No bookings yet</p></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Quick Actions</h3></div>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
+            <a href="providers.html" class="btn-primary" style="text-align:center;">🔍 Find a Worker</a>
+            <a href="providers.html?category=electrician" class="btn-secondary" style="text-align:center;">⚡ Book Electrician</a>
+            <a href="providers.html?category=plumber" class="btn-secondary" style="text-align:center;">🔧 Book Plumber</a>
+            <a href="providers.html?category=cleaner" class="btn-secondary" style="text-align:center;">🧹 Book Cleaner</a>
+            <a href="chat.html" class="btn-ghost" style="text-align:center;">💬 Open Messages</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOKINGS -->
+    <div id="page-bookings" class="page-transition" style="display:none;">
+      <div class="page-header"><h1>My Bookings</h1><p>Track all your service bookings</p></div>
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="filterBookings('all',this)">All</button>
+        <button class="tab-btn" onclick="filterBookings('pending',this)">Pending</button>
+        <button class="tab-btn" onclick="filterBookings('accepted',this)">Accepted</button>
+        <button class="tab-btn" onclick="filterBookings('completed',this)">Completed</button>
+        <button class="tab-btn" onclick="filterBookings('cancelled',this)">Cancelled</button>
+      </div>
+      <div id="bookingsList"></div>
+    </div>
+
+    <!-- BROWSE -->
+    <div id="page-browse" class="page-transition" style="display:none;">
+      <div class="page-header"><h1>Browse Workers</h1><p>Find the right professional for your needs</p></div>
+      <div class="search-filter-bar">
+        <input class="search-input" type="text" id="browseSearch" placeholder="Search by name or service..." oninput="searchWorkers()" />
+        <select class="filter-select" id="browseCategory" onchange="searchWorkers()">
+          <option value="">All Services</option>
+          <option value="electrician">⚡ Electrician</option>
+          <option value="plumber">🔧 Plumber</option>
+          <option value="cleaner">🧹 Cleaner</option>
+          <option value="carpenter">🪚 Carpenter</option>
+          <option value="painter">🖌️ Painter</option>
+          <option value="ac_repair">❄️ AC Repair</option>
+          <option value="gardener">🌿 Gardener</option>
+        </select>
+        <input class="search-input" type="text" id="browseLocation" placeholder="City or area..." style="max-width:200px;" oninput="searchWorkers()" />
+      </div>
+      <div class="providers-grid" id="browseGrid"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page-transition" style="display:none;">
+      <div class="page-header"><h1>Account Settings</h1><p>Update your personal information</p></div>
+      <div class="card" style="max-width:540px;">
+        <div class="form-group"><label>Full Name</label><input type="text" id="settingName" /></div>
+        <div class="form-group"><label>Phone</label><input type="text" id="settingPhone" /></div>
+        <div class="form-group"><label>Location</label><input type="text" id="settingLocation" /></div>
+        <button class="btn-primary" onclick="saveSettings()">Save Changes</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- BOOKING MODAL -->
+<div class="modal-overlay" id="bookingModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Book <span id="modalProviderName">Provider</span></h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label>Service Type</label>
+      <select id="bookService">
+        <option value="">Select service...</option>
+        <option value="electrician">⚡ Electrical Work</option>
+        <option value="plumber">🔧 Plumbing</option>
+        <option value="cleaner">🧹 Cleaning</option>
+        <option value="carpenter">🪚 Carpentry</option>
+        <option value="painter">🖌️ Painting</option>
+        <option value="ac_repair">❄️ AC Repair</option>
+        <option value="gardener">🌿 Gardening</option>
+        <option value="other">🛠️ Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Description / Issue</label>
+      <textarea id="bookDescription" rows="3" placeholder="Describe the work needed..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Date</label><input type="date" id="bookDate" /></div>
+      <div class="form-group"><label>Time</label><input type="time" id="bookTime" /></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Address</label><input type="text" id="bookAddress" placeholder="Full address" /></div>
+      <div class="form-group"><label>Est. Hours</label><input type="number" id="bookHours" min="1" max="12" value="2" /></div>
+    </div>
+    <div class="booking-summary">
+      <div class="booking-summary-row"><span>Rate</span><span id="sumRate">₹0/hr</span></div>
+      <div class="booking-summary-row"><span>Hours</span><span id="sumHours">2 hrs</span></div>
+      <div class="booking-summary-row"><span>Total</span><span id="sumTotal">₹0</span></div>
+    </div>
+    <button class="btn-primary btn-full" onclick="submitBooking()">Confirm Booking</button>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+if (!requireAuth('user')) {}
+
+let user = api.getUser();
+let allBookings = [];
+let currentFilter = 'all';
+let currentProviderId = null;
+let currentProviderRate = 0;
+
+// Init
+document.getElementById('sidebarName').textContent = user.name;
+document.getElementById('sidebarEmail').textContent = user.email;
+document.getElementById('headerName').textContent = user.name.split(' ')[0];
+document.getElementById('settingName').value = user.name;
+document.getElementById('settingPhone').value = user.phone || '';
+document.getElementById('settingLocation').value = user.location || '';
+
+// Booking price calculator
+document.getElementById('bookHours').addEventListener('input', updateBookingSummary);
+
+function updateBookingSummary() {
+  const hrs = parseInt(document.getElementById('bookHours').value) || 1;
+  document.getElementById('sumRate').textContent = `₹${currentProviderRate}/hr`;
+  document.getElementById('sumHours').textContent = `${hrs} hrs`;
+  document.getElementById('sumTotal').textContent = `₹${currentProviderRate * hrs}`;
+}
+
+function showPage(id) {
+  document.querySelectorAll('.main-content > div').forEach(d => d.style.display = 'none');
+  document.getElementById(`page-${id}`).style.display = 'block';
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const nav = [...document.querySelectorAll('.nav-item')].find(n => n.textContent.toLowerCase().includes(id === 'overview' ? 'overview' : id === 'bookings' ? 'booking' : id === 'browse' ? 'browse' : id));
+  if (nav) nav.classList.add('active');
+  if (id === 'bookings') loadBookingsPage();
+  if (id === 'browse') searchWorkers();
+}
+
+async function loadDashboard() {
+  try {
+    const data = await api.getMyBookings();
+    allBookings = data.bookings || [];
+    document.getElementById('statTotal').textContent = allBookings.length;
+    document.getElementById('statPending').textContent = allBookings.filter(b => b.status === 'pending').length;
+    document.getElementById('statCompleted').textContent = allBookings.filter(b => b.status === 'completed').length;
+    renderRecentBookings(allBookings.slice(0,3));
+  } catch(e) { console.error(e); }
+}
+
+function renderRecentBookings(bookings) {
+  const el = document.getElementById('recentBookings');
+  if (!bookings.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><p>No bookings yet. <a href="providers.html" style="color:var(--primary)">Find a worker!</a></p></div>'; return; }
+  el.innerHTML = bookings.map(b => `
+    <div class="booking-item">
+      <div class="booking-item-avatar">${categoryIcon(b.service) || '🛠️'}</div>
+      <div class="booking-item-info">
+        <strong>${b.provider?.name || 'Provider'}</strong>
+        <span>${categoryLabel(b.service)}</span>
+        <small>${formatDate(b.scheduledDate)} at ${b.scheduledTime}</small>
+      </div>
+      <span class="status-badge ${b.status}">${b.status}</span>
+    </div>`).join('');
+}
+
+function loadBookingsPage() {
+  filterBookings(currentFilter);
+}
+
+function filterBookings(status, btn) {
+  currentFilter = status;
+  if (btn) { document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
+  const filtered = status === 'all' ? allBookings : allBookings.filter(b => b.status === status);
+  const el = document.getElementById('bookingsList');
+  if (!filtered.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No bookings found</p></div>'; return; }
+  el.innerHTML = filtered.map(b => `
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <div class="booking-item-avatar">${categoryIcon(b.service)}</div>
+            <div>
+              <strong style="font-family:var(--font);">${b.provider?.name || 'Provider'}</strong>
+              <div style="font-size:.82rem;color:var(--text-2);">${categoryLabel(b.service)}</div>
+            </div>
+            <span class="status-badge ${b.status}" style="margin-left:auto;">${b.status}</span>
+          </div>
+          <div style="font-size:.85rem;color:var(--text-2);display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+            <span>📅 ${formatDate(b.scheduledDate)}</span>
+            <span>⏰ ${b.scheduledTime}</span>
+            <span>📍 ${b.address}</span>
+            <span>💰 ₹${b.totalPrice}</span>
+          </div>
+          ${b.description ? `<div style="font-size:.82rem;color:var(--text-3);margin-top:8px;">📝 ${b.description}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+          ${b.status === 'pending' ? `<button class="btn-danger" onclick="cancelBooking('${b._id}')">Cancel</button>` : ''}
+          ${b.status === 'accepted' ? `<button class="btn-ghost" onclick="startChat('${b.provider._id}')">💬 Chat</button>` : ''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function cancelBooking(id) {
+  if (!confirm('Cancel this booking?')) return;
+  try {
+    await api.updateBookingStatus(id, 'cancelled');
+    toast('Booking cancelled', 'info');
+    await loadDashboard();
+    filterBookings(currentFilter);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function startChat(providerId) {
+  window.location.href = `chat.html?with=${providerId}`;
+}
+
+async function searchWorkers() {
+  const search = document.getElementById('browseSearch').value;
+  const category = document.getElementById('browseCategory').value;
+  const location = document.getElementById('browseLocation').value;
+  const grid = document.getElementById('browseGrid');
+  grid.innerHTML = '<div class="provider-skeleton"></div><div class="provider-skeleton"></div><div class="provider-skeleton"></div>';
+  try {
+    const data = await api.getProviders({ search, category, location });
+    grid.innerHTML = '';
+    if (!data.providers?.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">👷</div><p>No workers found. Try different filters.</p></div>'; return; }
+    data.providers.forEach(p => {
+      const card = createProviderCard(p);
+      // override click to open booking
+      card.onclick = null;
+      const user = p.user || {};
+      const footer = card.querySelector('.provider-footer');
+      const btns = document.createElement('div');
+      btns.style = 'display:flex;gap:8px;margin-top:12px;';
+      btns.innerHTML = `
+        <button class="btn-primary" style="flex:1;" onclick="openBooking('${user._id}','${user.name}',${p.hourlyRate||0})">Book Now</button>
+        <button class="btn-ghost" onclick="window.location.href='provider-profile.html?id=${user._id}'">View</button>
+        <button class="btn-secondary" onclick="startChat('${user._id}')">💬</button>`;
+      card.appendChild(btns);
+      grid.appendChild(card);
+    });
+  } catch(e) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Failed to load workers</p></div>'; }
+}
+
+function openBooking(providerId, providerName, rate) {
+  currentProviderId = providerId; currentProviderRate = rate;
+  document.getElementById('modalProviderName').textContent = providerName;
+  document.getElementById('sumRate').textContent = `₹${rate}/hr`;
+  updateBookingSummary();
+  // Set min date to today
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('bookDate').min = today;
+  document.getElementById('bookingModal').classList.add('open');
+}
+function closeModal() { document.getElementById('bookingModal').classList.remove('open'); }
+
+async function submitBooking() {
+  const service = document.getElementById('bookService').value;
+  const description = document.getElementById('bookDescription').value;
+  const scheduledDate = document.getElementById('bookDate').value;
+  const scheduledTime = document.getElementById('bookTime').value;
+  const address = document.getElementById('bookAddress').value;
+  const estimatedHours = document.getElementById('bookHours').value;
+  if (!service || !scheduledDate || !scheduledTime || !address) { toast('Please fill all required fields', 'error'); return; }
+  try {
+    await api.createBooking({ providerId: currentProviderId, service, description, scheduledDate, scheduledTime, address, estimatedHours });
+    toast('Booking sent! Waiting for confirmation.', 'success');
+    closeModal(); await loadDashboard();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function saveSettings() {
+  const name = document.getElementById('settingName').value.trim();
+  const phone = document.getElementById('settingPhone').value.trim();
+  const location = document.getElementById('settingLocation').value.trim();
+  try {
+    const data = await api.updateProfile({ name, phone, location });
+    api.setAuth(api.getToken(), data.user);
+    user = data.user;
+    document.getElementById('sidebarName').textContent = user.name;
+    toast('Profile updated!', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// Close modal on overlay click
+document.getElementById('bookingModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
+// Init
+function createProviderCard(p) {
+  const card = document.createElement('div');
+  card.className = 'provider-card';
+  const u = p.user || {};
+  const initials = u.name ? u.name.split(' ').map(n=>n[0]).join('').toUpperCase() : '?';
+  card.innerHTML = `
+    <div class="provider-card-top">
+      <div class="provider-avatar">
+        ${u.avatar ? `<img src="${u.avatar}" alt="${u.name}" />` : `<span>${initials}</span>`}
+        <span class="online-dot ${u.isOnline ? 'online' : 'offline'}"></span>
+      </div>
+      <div class="provider-meta">
+        <strong>${u.name || 'Provider'}</strong>
+        <span class="category-badge">${categoryIcon(p.category)} ${categoryLabel(p.category)}</span>
+        <div class="location">📍 ${p.location || u.location || 'Not set'}</div>
+        <div class="rating-row">
+          <span class="stars">${renderStars(p.avgRating||0)}</span>
+          <span class="rating-count">${p.avgRating||'—'} (${p.reviews?.length||0})</span>
+        </div>
+      </div>
+    </div>
+    <div class="provider-footer">
+      <div class="provider-price">₹${p.hourlyRate||0}<span>/hr</span></div>
+      <span class="availability-badge ${p.availability?'avail':'busy'}">${p.availability?'✓ Available':'✗ Busy'}</span>
+    </div>`;
+  return card;
+}
+
+loadDashboard();
+</script>
+</body>
+</html>
+
+
+
+

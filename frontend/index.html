@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyHome Worker — Find Trusted Local Experts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <a href="/" class="logo">
+      <span class="logo-icon">⚡</span>
+      <span>MyHome<strong>Worker</strong></span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="#services">Services</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="pages/providers.html">Find Workers</a>
+    </div>
+    <div class="nav-actions" id="navActions">
+      <a href="pages/login.html" class="btn-ghost">Log In</a>
+      <a href="pages/signup.html" class="btn-primary">Get Started</a>
+    </div>
+    <button class="hamburger" id="hamburger">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge reveal">⭐ Trusted by 50,000+ homeowners</div>
+    <h1 class="hero-title reveal">
+      Find <span class="gradient-text">Skilled Workers</span><br/>
+      For Every Home Job
+    </h1>
+    <p class="hero-sub reveal">Connect instantly with verified local electricians, plumbers, cleaners, and more. Book in minutes, get it done today.</p>
+    <div class="hero-search reveal">
+      <div class="search-box">
+        <select id="heroCategory">
+          <option value="">All Services</option>
+          <option value="electrician">⚡ Electrician</option>
+          <option value="plumber">🔧 Plumber</option>
+          <option value="cleaner">🧹 Cleaner</option>
+          <option value="carpenter">🪚 Carpenter</option>
+          <option value="painter">🖌️ Painter</option>
+          <option value="ac_repair">❄️ AC Repair</option>
+          <option value="gardener">🌿 Gardener</option>
+        </select>
+        <input type="text" id="heroLocation" placeholder="Enter your location..." />
+        <button class="search-btn" onclick="heroSearch()">Search</button>
+      </div>
+    </div>
+    <div class="hero-stats reveal">
+      <div class="stat"><strong>12K+</strong><span>Verified Workers</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat"><strong>50K+</strong><span>Jobs Completed</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat"><strong>4.9★</strong><span>Avg. Rating</span></div>
+    </div>
+  </div>
+  <div class="hero-visual reveal">
+    <div class="hero-card floating">
+      <div class="hcard-avatar">👨‍🔧</div>
+      <div class="hcard-info">
+        <strong>Rajesh Kumar</strong>
+        <span>Electrician · Delhi</span>
+        <div class="hcard-stars">★★★★★ <small>4.9</small></div>
+      </div>
+      <span class="hcard-badge online">Online</span>
+    </div>
+    <div class="hero-card floating-2">
+      <div class="hcard-avatar">👩‍🔧</div>
+      <div class="hcard-info">
+        <strong>Priya Singh</strong>
+        <span>Plumber · Mumbai</span>
+        <div class="hcard-stars">★★★★★ <small>4.8</small></div>
+      </div>
+      <span class="hcard-badge online">Online</span>
+    </div>
+    <div class="hero-booking reveal-right">
+      <div class="booking-top">
+        <span class="booking-icon">✅</span>
+        <div>
+          <strong>Booking Confirmed!</strong>
+          <small>AC Repair · Today 3pm</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section class="services" id="services">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-tag">What We Offer</span>
+      <h2>All Home Services<br/><span class="gradient-text">In One Place</span></h2>
+    </div>
+    <div class="services-grid">
+      <div class="service-card reveal tilt-card" onclick="browseService('electrician')">
+        <div class="service-icon">⚡</div>
+        <h3>Electrician</h3>
+        <p>Wiring, repairs, installations & more</p>
+        <span class="service-count">240+ workers</span>
+      </div>
+      <div class="service-card reveal tilt-card" onclick="browseService('plumber')">
+        <div class="service-icon">🔧</div>
+        <h3>Plumber</h3>
+        <p>Leaks, pipes, fittings & drainage</p>
+        <span class="service-count">180+ workers</span>
+      </div>
+      <div class="service-card reveal tilt-card" onclick="browseService('cleaner')">
+        <div class="service-icon">🧹</div>
+        <h3>Cleaner</h3>
+        <p>Deep cleaning, regular & sofa cleaning</p>
+        <span class="service-count">320+ workers</span>
+      </div>
+      <div class="service-card reveal tilt-card" onclick="browseService('carpenter')">
+        <div class="service-icon">🪚</div>
+        <h3>Carpenter</h3>
+        <p>Furniture, doors, custom woodwork</p>
+        <span class="service-count">120+ workers</span>
+      </div>
+      <div class="service-card reveal tilt-card" onclick="browseService('painter')">
+        <div class="service-icon">🖌️</div>
+        <h3>Painter</h3>
+        <p>Interior, exterior & texture painting</p>
+        <span class="service-count">150+ workers</span>
+      </div>
+      <div class="service-card reveal tilt-card" onclick="browseService('ac_repair')">
+        <div class="service-icon">❄️</div>
+        <h3>AC Repair</h3>
+        <p>Service, gas filling & installation</p>
+        <span class="service-count">90+ workers</span>
+      </div>
+      <div class="service-card reveal tilt-card" onclick="browseService('gardener')">
+        <div class="service-icon">🌿</div>
+        <h3>Gardener</h3>
+        <p>Lawn care, trimming & landscaping</p>
+        <span class="service-count">80+ workers</span>
+      </div>
+      <div class="service-card reveal tilt-card" onclick="browseService('appliance_repair')">
+        <div class="service-icon">🔌</div>
+        <h3>Appliance Repair</h3>
+        <p>Washing machines, fridges & more</p>
+        <span class="service-count">110+ workers</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-it-works" id="how-it-works">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-tag">Simple Process</span>
+      <h2>Book in <span class="gradient-text">3 Easy Steps</span></h2>
+    </div>
+    <div class="steps-row">
+      <div class="step reveal">
+        <div class="step-num">01</div>
+        <div class="step-icon">🔍</div>
+        <h3>Search</h3>
+        <p>Find the service you need and browse verified local workers.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step reveal">
+        <div class="step-num">02</div>
+        <div class="step-icon">📅</div>
+        <h3>Book</h3>
+        <p>Choose your preferred worker and schedule a time that works for you.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step reveal">
+        <div class="step-num">03</div>
+        <div class="step-icon">✅</div>
+        <h3>Done</h3>
+        <p>Worker arrives, completes the job, and you rate the experience.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURED WORKERS -->
+<section class="featured" id="featured">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-tag">Top Rated</span>
+      <h2>Featured <span class="gradient-text">Workers</span></h2>
+    </div>
+    <div class="featured-grid" id="featuredGrid">
+      <div class="provider-skeleton"></div>
+      <div class="provider-skeleton"></div>
+      <div class="provider-skeleton"></div>
+    </div>
+    <div class="center-btn reveal">
+      <a href="pages/providers.html" class="btn-primary large">Browse All Workers →</a>
+    </div>
+  </div>
+</section>
+
+<!-- CTA SECTION -->
+<section class="cta-section">
+  <div class="cta-inner reveal">
+    <h2>Are You a Skilled Worker?</h2>
+    <p>Join thousands of professionals earning more with MyHome Worker. Set your own schedule and price.</p>
+    <div class="cta-actions">
+      <a href="pages/signup.html?role=provider" class="btn-white">Join as a Provider</a>
+      <a href="pages/providers.html" class="btn-outline-white">Explore Platform</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="logo-icon">⚡</span>
+      <span>MyHome<strong>Worker</strong></span>
+      <p>Connecting homeowners with trusted local service providers.</p>
+    </div>
+    <div class="footer-links">
+      <h4>Services</h4>
+      <a href="#">Electrician</a>
+      <a href="#">Plumber</a>
+      <a href="#">Cleaner</a>
+      <a href="#">Carpenter</a>
+    </div>
+    <div class="footer-links">
+      <h4>Company</h4>
+      <a href="#">About Us</a>
+      <a href="#">How It Works</a>
+      <a href="#">Contact</a>
+    </div>
+    <div class="footer-links">
+      <h4>Account</h4>
+      <a href="pages/login.html">Login</a>
+      <a href="pages/signup.html">Sign Up</a>
+      <a href="pages/signup.html?role=provider">Become Provider</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2024 MyHomeWorker. All rights reserved.</p>
+  </div>
+</footer>
+
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script>
+function heroSearch() {
+  const cat = document.getElementById('heroCategory').value;
+  const loc = document.getElementById('heroLocation').value;
+  window.location.href = `pages/providers.html?category=${cat}&location=${loc}`;
+}
+function browseService(cat) {
+  window.location.href = `pages/providers.html?category=${cat}`;
+}
+</script>
+</body>
+</html>

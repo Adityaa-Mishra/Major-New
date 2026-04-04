@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Messages - MyHome Worker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/animations.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+</head>
+<body>
+<nav class="navbar scrolled">
+  <div class="nav-inner">
+    <a href="../index.html" class="logo"><span class="logo-icon">?</span><span>MyHome<strong>Worker</strong></span></a>
+    <div class="nav-actions" style="margin-left:auto;" id="navActions"></div>
+  </div>
+</nav>
+
+<div style="padding-top:70px;height:100vh;display:flex;flex-direction:column;">
+  <div class="chat-layout">
+    <div class="chat-sidebar">
+      <div class="chat-sidebar-header">
+        <h3>Messages</h3>
+      </div>
+      <div class="chat-search">
+        <input type="text" id="chatSearch" placeholder="Search conversations..." oninput="filterConversations()" />
+      </div>
+      <div class="chat-list" id="chatList">
+        <div style="padding:24px;text-align:center;color:var(--text-3);">
+          <div class="spinner" style="margin:0 auto 10px;"></div>
+          <p style="font-size:.85rem;">Loading conversations...</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-window" id="chatWindow">
+      <div class="chat-placeholder">
+        <div class="cp-icon">Chat</div>
+        <p>Select a conversation to start chatting</p>
+        <p style="font-size:.8rem;color:var(--text-3);margin-top:4px;">Only customers can initiate new chats</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+if (!requireAuth()) {}
+
+const currentUser = api.getUser();
+let socket = null;
+let currentPartner = null;
+let typingTimer = null;
+let conversations = [];
+let renderedMessageIds = new Set();
+let selectedMediaFile = null;
+const chatLayout = document.querySelector('.chat-layout');
+
+const dash = currentUser.role === 'provider' ? 'provider-dashboard.html' : 'user-dashboard.html';
+document.getElementById('navActions').innerHTML = `<a href="${dash}" class="btn-ghost">Dashboard</a><button onclick="logout()" class="btn-primary">Logout</button>`;
+
+function initSocket() {
+  socket = io('http://localhost:5000');
+
+  socket.on('connect', () => {
+    socket.emit('user:online', currentUser._id);
+  });
+
+  socket.on('chat:message', (message) => {
+    if (!currentPartner) return;
+    const senderId = message.sender?._id || message.sender;
+    const visible = senderId === currentPartner._id || senderId === currentUser._id;
+    if (visible) {
+      const added = appendMessage(message);
+      if (added) scrollToBottom();
+    }
+    loadConversations();
+  });
+
+  socket.on('chat:typing', ({ senderId, isTyping }) => {
+    if (currentPartner && senderId === currentPartner._id) {
+      const indicator = document.getElementById('typingIndicator');
+      if (indicator) indicator.style.display = isTyping ? 'flex' : 'none';
+    }
+  });
+
+  socket.on('user:status', ({ userId, isOnline }) => {
+    if (currentPartner && userId === currentPartner._id) {
+      const statusEl = document.getElementById('partnerStatus');
+      if (statusEl) statusEl.textContent = isOnline ? 'Online' : 'Offline';
+    }
+    const dot = document.querySelector(`.chat-item[data-id="${userId}"] .status-dot`);
+    if (dot) dot.className = `status-dot ${isOnline ? 'on' : 'off'}`;
+    conversations = conversations.map(c => c.user?._id === userId ? { ...c, user: { ...c.user, isOnline } } : c);
+  });
+
+  socket.on('chat:notification', ({ from, senderName, content }) => {
+    if (!currentPartner || currentPartner._id !== from) {
+      toast(`${senderName}: ${content.substring(0, 40)}`, 'info');
+      loadConversations();
+    }
+  });
+}
+
+function isMobileView() {
+  return window.innerWidth <= 768;
+}
+
+function setMobileChatOpen(isOpen) {
+  if (!chatLayout) return;
+  chatLayout.classList.toggle('mobile-chat-open', !!isOpen);
+}
+
+async function loadConversations() {
+  try {
+    const data = await api.getConversations();
+    conversations = data.conversations || [];
+    renderConversations(conversations);
+  } catch (e) {
+    document.getElementById('chatList').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-3);font-size:.85rem;">Could not load conversations</div>';
+  }
+}
+
+function filterConversations() {
+  const q = document.getElementById('chatSearch').value.toLowerCase();
+  const filtered = conversations.filter(c => c.user?.name?.toLowerCase().includes(q));
+  renderConversations(filtered);
+}
+
+function renderConversations(convs) {
+  const list = document.getElementById('chatList');
+  if (!convs.length) {
+    list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-3);">
+      <div style="font-size:2rem;margin-bottom:8px;">No Chats</div>
+      <p style="font-size:.85rem;">No conversations yet</p>
+      ${currentUser.role === 'user' ? '<p style="font-size:.78rem;margin-top:6px;">Find a worker and start chatting!</p>' : '<p style="font-size:.78rem;margin-top:6px;">Customers will message you first</p>'}
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = convs.map(c => {
+    const u = c.user || {};
+    const initials = u.name ? u.name.split(' ').map(n => n[0]).join('').toUpperCase() : '?';
+    const isActive = currentPartner?._id === u._id;
+    return `
+      <div class="chat-item ${isActive ? 'active' : ''}" data-id="${u._id}" onclick="openChat('${u._id}','${escapeAttr(u.name || 'User')}','${u.role || ''}','${u.isOnline}')">
+        <div class="chat-item-avatar">
+          <div class="av">${u.avatar ? `<img src="${u.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />` : initials}</div>
+          <span class="status-dot ${u.isOnline ? 'on' : 'off'}"></span>
+        </div>
+        <div class="chat-item-info">
+          <strong>${u.name || 'User'}</strong>
+          <p>${messagePreview(c.lastMessage)}</p>
+        </div>
+        <div class="chat-item-meta">
+          <small>${c.lastMessage ? timeAgo(c.lastMessage.createdAt) : ''}</small>
+          ${c.unreadCount > 0 ? `<span class="unread-badge">${c.unreadCount}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function openChat(partnerId, partnerName, partnerRole, isOnline) {
+  currentPartner = { _id: partnerId, name: partnerName, role: partnerRole, isOnline: isOnline === 'true' };
+  renderedMessageIds = new Set();
+  selectedMediaFile = null;
+  if (isMobileView()) setMobileChatOpen(true);
+
+  document.querySelectorAll('.chat-item').forEach(i => i.classList.remove('active'));
+  const item = document.querySelector(`.chat-item[data-id="${partnerId}"]`);
+  if (item) item.classList.add('active');
+
+  socket.emit('chat:join', { userId: currentUser._id, partnerId });
+
+  const initials = (partnerName || 'U').split(' ').map(n => n[0]).join('').toUpperCase();
+  document.getElementById('chatWindow').innerHTML = `
+    <div class="chat-window-header">
+      <button class="chat-back-btn" onclick="closeChatMobile()" title="Back to chats">←</button>
+      <div class="cw-avatar">
+        <span>${initials}</span>
+        <span style="position:absolute;bottom:2px;right:2px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;background:${currentPartner.isOnline ? '#22c55e' : '#94a3b8'};"></span>
+      </div>
+      <div class="cw-info">
+        <strong>${escapeHtml(partnerName)}</strong>
+        <small id="partnerStatus">${currentPartner.isOnline ? 'Online' : 'Offline'}</small>
+      </div>
+      ${currentUser.role === 'user' ? `<a href="provider-profile.html?id=${partnerId}" class="btn-ghost" style="margin-left:auto;font-size:.82rem;">View Profile</a>` : ''}
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div style="text-align:center;color:var(--text-3);font-size:.82rem;padding:16px;">Loading messages...</div>
+    </div>
+    <div id="typingIndicator" class="typing-indicator" style="display:none;padding:0 24px 8px;">
+      <div class="msg-avatar">${initials[0] || 'U'}</div>
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+    </div>
+    <div class="chat-input-area">
+      <label class="media-btn" title="Attach image/video">&#128206;
+        <input type="file" id="mediaInput" accept="image/*,video/*" onchange="handleMediaSelect(event)" />
+      </label>
+      <textarea class="chat-input" id="msgInput" placeholder="Type a message..." rows="1" onkeydown="handleKey(event)" oninput="handleTyping()"></textarea>
+      <button class="media-clear-btn" id="mediaClearBtn" onclick="clearSelectedMedia()" style="display:none;">x</button>
+      <button class="send-btn" onclick="sendMessage()">&#10148;</button>
+    </div>`;
+
+  try {
+    const data = await api.getMessages(partnerId);
+    renderMessages(data.messages || []);
+    scrollToBottom();
+    socket.emit('chat:read', { userId: currentUser._id, partnerId });
+    loadConversations();
+  } catch (e) {
+    document.getElementById('chatMessages').innerHTML = '<div style="text-align:center;color:var(--text-3);font-size:.85rem;">Could not load messages</div>';
+  }
+}
+
+function closeChatMobile() {
+  if (!isMobileView()) return;
+  currentPartner = null;
+  renderedMessageIds = new Set();
+  setMobileChatOpen(false);
+  document.querySelectorAll('.chat-item').forEach(i => i.classList.remove('active'));
+}
+
+function renderMessages(messages) {
+  const container = document.getElementById('chatMessages');
+  renderedMessageIds = new Set(messages.map(m => m._id).filter(Boolean));
+  if (!messages.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-3);font-size:.85rem;padding:32px;">No messages yet. Say hello!</div>';
+    return;
+  }
+  container.innerHTML = messages.map(m => buildMessageBubble(m)).join('');
+}
+
+function buildMessageBubble(m) {
+  const isOwn = (m.sender?._id || m.sender) === currentUser._id;
+  const senderName = m.sender?.name || '';
+  const initials = senderName ? senderName.split(' ').map(n => n[0]).join('').toUpperCase() : '?';
+  const text = m.content ? `<div class="msg-text">${escapeHtml(m.content)}</div>` : '';
+
+  let media = '';
+  if (m.mediaUrl) {
+    const mediaUrl = resolveMediaUrl(m.mediaUrl);
+    if (m.type === 'video') {
+      media = `<video class="msg-media" controls preload="metadata"><source src="${escapeAttr(mediaUrl)}" type="${escapeAttr(m.mimeType || 'video/mp4')}" /></video>`;
+    } else {
+      media = `<img class="msg-media" src="${escapeAttr(mediaUrl)}" alt="${escapeAttr(m.mediaName || 'attachment')}" loading="lazy" />`;
+    }
+  }
+
+  return `
+    <div class="message ${isOwn ? 'own' : ''}">
+      ${!isOwn ? `<div class="msg-avatar">${initials}</div>` : ''}
+      <div>
+        <div class="msg-bubble">${media}${text}<span class="msg-time">${formatTime(m.createdAt)}</span></div>
+      </div>
+    </div>`;
+}
+
+function appendMessage(m) {
+  const container = document.getElementById('chatMessages');
+  if (!container) return false;
+  if (m._id && renderedMessageIds.has(m._id)) return false;
+  if (m._id) renderedMessageIds.add(m._id);
+  if (container.querySelector('div[style*="text-align:center"]') && container.children.length === 1) {
+    container.innerHTML = '';
+  }
+  container.insertAdjacentHTML('beforeend', buildMessageBubble(m));
+  return true;
+}
+
+function scrollToBottom() {
+  const c = document.getElementById('chatMessages');
+  if (c) c.scrollTop = c.scrollHeight;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('msgInput');
+  if (!input || !currentPartner) return;
+  const content = input.value.trim();
+  if (!content && !selectedMediaFile) return;
+
+  if (selectedMediaFile && selectedMediaFile.size > 25 * 1024 * 1024) {
+    toast('Media size must be 25MB or less', 'error');
+    return;
+  }
+
+  input.value = '';
+  input.style.height = 'auto';
+  socket.emit('chat:typing', { senderId: currentUser._id, receiverId: currentPartner._id, isTyping: false });
+
+  try {
+    const data = await api.sendMessage(currentPartner._id, content, selectedMediaFile);
+    const msg = data.message;
+    msg.sender = { _id: currentUser._id, name: currentUser.name };
+    appendMessage(msg);
+    scrollToBottom();
+    clearSelectedMedia();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function handleTyping() {
+  if (!currentPartner || !socket) return;
+  socket.emit('chat:typing', { senderId: currentUser._id, receiverId: currentPartner._id, isTyping: true });
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => {
+    socket.emit('chat:typing', { senderId: currentUser._id, receiverId: currentPartner._id, isTyping: false });
+  }, 1500);
+
+  const input = document.getElementById('msgInput');
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 100) + 'px';
+}
+
+function handleMediaSelect(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!(file.type.startsWith('image/') || file.type.startsWith('video/'))) {
+    toast('Only image and video files are allowed', 'error');
+    event.target.value = '';
+    return;
+  }
+  if (file.size > 25 * 1024 * 1024) {
+    toast('Media size must be 25MB or less', 'error');
+    event.target.value = '';
+    return;
+  }
+
+  selectedMediaFile = file;
+  const clearBtn = document.getElementById('mediaClearBtn');
+  if (clearBtn) clearBtn.style.display = 'inline-flex';
+}
+
+function clearSelectedMedia() {
+  selectedMediaFile = null;
+  const fileInput = document.getElementById('mediaInput');
+  if (fileInput) fileInput.value = '';
+  const clearBtn = document.getElementById('mediaClearBtn');
+  if (clearBtn) clearBtn.style.display = 'none';
+}
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text || '';
+  return d.innerHTML;
+}
+
+function escapeAttr(text) {
+  return escapeHtml(text).replace(/"/g, '&quot;');
+}
+
+function resolveMediaUrl(url) {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  const host = API_BASE.replace('/api', '');
+  return `${host}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function messagePreview(msg) {
+  if (!msg) return '';
+  if (msg.type === 'image') return 'Image';
+  if (msg.type === 'video') return 'Video';
+  const text = msg.content || '';
+  return `${text.substring(0, 35)}${text.length > 35 ? '...' : ''}`;
+}
+
+const urlWith = new URLSearchParams(window.location.search).get('with');
+
+initSocket();
+setMobileChatOpen(false);
+loadConversations().then(() => {
+  if (!urlWith) return;
+  setTimeout(async () => {
+    try {
+      const data = await api.getMessages(urlWith);
+      const partnerData = data.otherUser;
+      if (partnerData) {
+        openChat(partnerData._id, partnerData.name, partnerData.role, partnerData.isOnline);
+      }
+    } catch (e) {
+      if (currentUser.role === 'user') {
+        const conv = conversations.find(c => c.user?._id === urlWith);
+        if (conv) openChat(conv.user._id, conv.user.name, conv.user.role, conv.user.isOnline);
+      }
+    }
+  }, 500);
+});
+
+window.addEventListener('resize', () => {
+  if (!isMobileView()) setMobileChatOpen(false);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Find Workers — MyHome Worker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/animations.css" />
+</head>
+<body>
+<nav class="navbar scrolled" id="navbar">
+  <div class="nav-inner">
+    <a href="/" class="logo"><span class="logo-icon">⚡</span><span>MyHome<strong>Worker</strong></span></a>
+    <div class="nav-links"><a href="/">Home</a><a href="providers.html">Find Workers</a></div>
+    <div class="nav-actions" id="navActions">
+      <a href="login.html" class="btn-ghost">Log In</a>
+      <a href="signup.html" class="btn-primary">Sign Up</a>
+    </div>
+  </div>
+</nav>
+
+<div class="providers-page">
+  <div class="providers-hero">
+    <h1>Find Skilled Workers Near You</h1>
+    <p>Browse verified professionals for every home service need</p>
+    <div class="providers-search">
+      <input type="text" id="searchQ" placeholder="Search name or service..." />
+      <select id="searchCat">
+        <option value="">All Services</option>
+        <option value="electrician">⚡ Electrician</option>
+        <option value="plumber">🔧 Plumber</option>
+        <option value="cleaner">🧹 Cleaner</option>
+        <option value="carpenter">🪚 Carpenter</option>
+        <option value="painter">🖌️ Painter</option>
+        <option value="ac_repair">❄️ AC Repair</option>
+        <option value="appliance_repair">🔌 Appliance Repair</option>
+        <option value="gardener">🌿 Gardener</option>
+      </select>
+      <input type="text" id="searchLoc" placeholder="📍 City or area..." />
+      <button class="search-btn" onclick="search()">Search</button>
+    </div>
+  </div>
+
+  <div class="providers-main">
+    <div class="providers-toolbar">
+      <div class="filter-chips">
+        <span class="chip active" onclick="setCategory('',this)">All</span>
+        <span class="chip" onclick="setCategory('electrician',this)">⚡ Electrician</span>
+        <span class="chip" onclick="setCategory('plumber',this)">🔧 Plumber</span>
+        <span class="chip" onclick="setCategory('cleaner',this)">🧹 Cleaner</span>
+        <span class="chip" onclick="setCategory('carpenter',this)">🪚 Carpenter</span>
+        <span class="chip" onclick="setCategory('ac_repair',this)">❄️ AC Repair</span>
+        <span class="chip" onclick="setCategory('painter',this)">🖌️ Painter</span>
+        <span class="chip" onclick="setCategory('gardener',this)">🌿 Gardener</span>
+      </div>
+      <div class="results-count" id="resultsCount">Loading...</div>
+    </div>
+    <div class="providers-grid" id="providersGrid">
+      <div class="provider-skeleton"></div><div class="provider-skeleton"></div><div class="provider-skeleton"></div>
+      <div class="provider-skeleton"></div><div class="provider-skeleton"></div><div class="provider-skeleton"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BOOKING MODAL -->
+<div class="modal-overlay" id="bookingModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Book <span id="modalProviderName">Provider</span></h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="loginPrompt" style="display:none;text-align:center;padding:20px 0;">
+      <div style="font-size:2rem;margin-bottom:12px;">🔐</div>
+      <p style="margin-bottom:16px;">Please login to book a provider</p>
+      <a href="login.html" class="btn-primary">Login Now</a>
+    </div>
+    <div id="bookingForm">
+      <div class="form-group"><label>Service</label>
+        <select id="bookService">
+          <option value="">Select service...</option>
+          <option value="electrician">⚡ Electrical Work</option>
+          <option value="plumber">🔧 Plumbing</option>
+          <option value="cleaner">🧹 Cleaning</option>
+          <option value="carpenter">🪚 Carpentry</option>
+          <option value="painter">🖌️ Painting</option>
+          <option value="ac_repair">❄️ AC Repair</option>
+          <option value="gardener">🌿 Gardening</option>
+          <option value="other">🛠️ Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Description</label>
+        <textarea id="bookDesc" rows="3" placeholder="Describe the work..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Date</label><input type="date" id="bookDate" /></div>
+        <div class="form-group"><label>Time</label><input type="time" id="bookTime" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Address</label><input type="text" id="bookAddr" placeholder="Your full address" /></div>
+        <div class="form-group"><label>Hours</label><input type="number" id="bookHrs" min="1" max="12" value="2" /></div>
+      </div>
+      <div class="booking-summary">
+        <div class="booking-summary-row"><span>Rate</span><span id="sumRate">₹0/hr</span></div>
+        <div class="booking-summary-row"><span>Hours</span><span id="sumHrs">2</span></div>
+        <div class="booking-summary-row"><span>Total</span><span id="sumTotal">₹0</span></div>
+      </div>
+      <button class="btn-primary btn-full" onclick="submitBooking()">Confirm Booking</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+let currentProviderId = null, currentRate = 0;
+
+// Update nav if logged in
+const loggedUser = api.getUser();
+if (loggedUser) {
+  const navActions = document.getElementById('navActions');
+  const dash = loggedUser.role === 'provider' ? 'provider-dashboard.html' : 'user-dashboard.html';
+  navActions.innerHTML = `<a href="${dash}" class="btn-ghost">Dashboard</a><button onclick="logout()" class="btn-primary">Logout</button>`;
+}
+
+// Read URL params
+const params = new URLSearchParams(window.location.search);
+if (params.get('category')) { document.getElementById('searchCat').value = params.get('category'); document.querySelectorAll('.chip').forEach(c => { c.classList.remove('active'); if (c.textContent.includes(params.get('category'))) c.classList.add('active'); }); }
+if (params.get('location')) document.getElementById('searchLoc').value = params.get('location');
+
+document.getElementById('bookHrs').addEventListener('input', calcTotal);
+
+function setCategory(cat, chip) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  document.getElementById('searchCat').value = cat;
+  search();
+}
+
+async function search() {
+  const q = document.getElementById('searchQ').value;
+  const category = document.getElementById('searchCat').value;
+  const location = document.getElementById('searchLoc').value;
+  const grid = document.getElementById('providersGrid');
+  grid.innerHTML = '<div class="provider-skeleton"></div>'.repeat(6);
+  document.getElementById('resultsCount').textContent = 'Searching...';
+  try {
+    const data = await api.getProviders({ search: q, category, location });
+    const providers = data.providers || [];
+    document.getElementById('resultsCount').textContent = `${providers.length} workers found`;
+    grid.innerHTML = '';
+    if (!providers.length) {
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">👷</div><p>No workers found. Try different filters or location.</p></div>';
+      return;
+    }
+    providers.forEach(p => {
+      const card = buildCard(p);
+      grid.appendChild(card);
+    });
+  } catch(e) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Failed to load workers. Is the server running?</p></div>';
+  }
+}
+
+function buildCard(p) {
+  const card = document.createElement('div');
+  card.className = 'provider-card';
+  const u = p.user || {};
+  const initials = u.name ? u.name.split(' ').map(n=>n[0]).join('').toUpperCase() : '?';
+  card.innerHTML = `
+    <div class="provider-card-top">
+      <div class="provider-avatar">
+        ${u.avatar ? `<img src="${u.avatar}" />` : `<span>${initials}</span>`}
+        <span class="online-dot ${u.isOnline?'online':'offline'}"></span>
+      </div>
+      <div class="provider-meta">
+        <strong>${u.name||'Provider'}</strong>
+        <span class="category-badge">${categoryIcon(p.category)} ${categoryLabel(p.category)}</span>
+        <div class="location">📍 ${p.location||u.location||'Not set'}</div>
+        <div class="rating-row">
+          <span class="stars">${renderStars(p.avgRating||0)}</span>
+          <span class="rating-count">${p.avgRating||'New'} (${p.reviews?.length||0} reviews)</span>
+        </div>
+      </div>
+    </div>
+    ${p.bio ? `<div style="font-size:.82rem;color:var(--text-2);margin:10px 0;line-height:1.5;border-top:1px solid var(--border-light);padding-top:10px;">${p.bio.substring(0,100)}${p.bio.length>100?'...':''}</div>` : ''}
+    ${p.skills?.length ? `<div class="skills-list" style="margin:8px 0;">${p.skills.slice(0,4).map(s=>`<span class="skill-tag">${s}</span>`).join('')}</div>` : ''}
+    <div class="provider-footer">
+      <div class="provider-price">₹${p.hourlyRate||0}<span>/hr</span></div>
+      <span class="availability-badge ${p.availability?'avail':'busy'}">${p.availability?'✓ Available':'✗ Busy'}</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn-primary" style="flex:1;" onclick="openBooking('${u._id}','${u.name}',${p.hourlyRate||0})">Book Now</button>
+      <a href="provider-profile.html?id=${u._id}" class="btn-ghost">Profile</a>
+    </div>`;
+  return card;
+}
+
+function openBooking(id, name, rate) {
+  currentProviderId = id; currentRate = rate;
+  document.getElementById('modalProviderName').textContent = name;
+  const isLoggedIn = api.isLoggedIn();
+  const u = api.getUser();
+  document.getElementById('loginPrompt').style.display = (!isLoggedIn || u?.role !== 'user') ? 'block' : 'none';
+  document.getElementById('bookingForm').style.display = (isLoggedIn && u?.role === 'user') ? 'block' : 'none';
+  document.getElementById('sumRate').textContent = `₹${rate}/hr`;
+  calcTotal();
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('bookDate').min = today;
+  document.getElementById('bookingModal').classList.add('open');
+}
+function closeModal() { document.getElementById('bookingModal').classList.remove('open'); }
+function calcTotal() {
+  const hrs = parseInt(document.getElementById('bookHrs').value)||1;
+  document.getElementById('sumHrs').textContent = hrs;
+  document.getElementById('sumTotal').textContent = `₹${currentRate*hrs}`;
+}
+async function submitBooking() {
+  const service = document.getElementById('bookService').value;
+  const description = document.getElementById('bookDesc').value;
+  const scheduledDate = document.getElementById('bookDate').value;
+  const scheduledTime = document.getElementById('bookTime').value;
+  const address = document.getElementById('bookAddr').value;
+  const estimatedHours = document.getElementById('bookHrs').value;
+  if (!service||!scheduledDate||!scheduledTime||!address) { toast('Please fill all required fields','error'); return; }
+  try {
+    await api.createBooking({ providerId: currentProviderId, service, description, scheduledDate, scheduledTime, address, estimatedHours });
+    toast('Booking sent! Check your dashboard.','success');
+    closeModal();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+document.getElementById('bookingModal').addEventListener('click', e => { if (e.target.id==='bookingModal') closeModal(); });
+document.getElementById('searchQ').addEventListener('keydown', e => { if(e.key==='Enter') search(); });
+
+search();
+</script>
+</body>
+</html>
