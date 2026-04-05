@@ -55,27 +55,42 @@ let typingTimer = null;
 let conversations = [];
 let renderedMessageIds = new Set();
 let selectedMediaFile = null;
+let reconnectToastShown = false;
 const chatLayout = document.querySelector('.chat-layout');
 
 const dash = currentUser.role === 'provider' ? 'provider-dashboard.html' : 'user-dashboard.html';
 document.getElementById('navActions').innerHTML = `<a href="${dash}" class="btn-ghost">Dashboard</a><button onclick="logout()" class="btn-primary">Logout</button>`;
 
 function initSocket() {
-  socket = io('http://localhost:5000');
+  socket = io(getSocketBaseUrl(), {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 300,
+    reconnectionDelayMax: 2000
+  });
 
   socket.on('connect', () => {
+    reconnectToastShown = false;
     socket.emit('user:online', currentUser._id);
   });
 
+  socket.on('connect_error', () => {
+    if (!reconnectToastShown) {
+      toast('Realtime connection issue. Reconnecting...', 'info');
+      reconnectToastShown = true;
+    }
+  });
+
   socket.on('chat:message', (message) => {
-    if (!currentPartner) return;
     const senderId = message.sender?._id || message.sender;
-    const visible = senderId === currentPartner._id || senderId === currentUser._id;
+    const visible = currentPartner && (senderId === currentPartner._id || senderId === currentUser._id);
     if (visible) {
       const added = appendMessage(message);
       if (added) scrollToBottom();
+      socket.emit('chat:read', { userId: currentUser._id, partnerId: currentPartner._id });
     }
-    loadConversations();
+    updateConversationPreview(message);
   });
 
   socket.on('chat:typing', ({ senderId, isTyping }) => {
@@ -83,16 +98,6 @@ function initSocket() {
       const indicator = document.getElementById('typingIndicator');
       if (indicator) indicator.style.display = isTyping ? 'flex' : 'none';
     }
-  });
-
-  socket.on('user:status', ({ userId, isOnline }) => {
-    if (currentPartner && userId === currentPartner._id) {
-      const statusEl = document.getElementById('partnerStatus');
-      if (statusEl) statusEl.textContent = isOnline ? 'Online' : 'Offline';
-    }
-    const dot = document.querySelector(`.chat-item[data-id="${userId}"] .status-dot`);
-    if (dot) dot.className = `status-dot ${isOnline ? 'on' : 'off'}`;
-    conversations = conversations.map(c => c.user?._id === userId ? { ...c, user: { ...c.user, isOnline } } : c);
   });
 
   socket.on('chat:notification', ({ from, senderName, content }) => {
@@ -144,10 +149,9 @@ function renderConversations(convs) {
     const initials = u.name ? u.name.split(' ').map(n => n[0]).join('').toUpperCase() : '?';
     const isActive = currentPartner?._id === u._id;
     return `
-      <div class="chat-item ${isActive ? 'active' : ''}" data-id="${u._id}" onclick="openChat('${u._id}','${escapeAttr(u.name || 'User')}','${u.role || ''}','${u.isOnline}')">
+      <div class="chat-item ${isActive ? 'active' : ''}" data-id="${u._id}" onclick="openChat('${u._id}','${escapeAttr(u.name || 'User')}','${u.role || ''}')">
         <div class="chat-item-avatar">
           <div class="av">${u.avatar ? `<img src="${u.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />` : initials}</div>
-          <span class="status-dot ${u.isOnline ? 'on' : 'off'}"></span>
         </div>
         <div class="chat-item-info">
           <strong>${u.name || 'User'}</strong>
@@ -161,8 +165,8 @@ function renderConversations(convs) {
   }).join('');
 }
 
-async function openChat(partnerId, partnerName, partnerRole, isOnline) {
-  currentPartner = { _id: partnerId, name: partnerName, role: partnerRole, isOnline: isOnline === 'true' };
+async function openChat(partnerId, partnerName, partnerRole) {
+  currentPartner = { _id: partnerId, name: partnerName, role: partnerRole };
   renderedMessageIds = new Set();
   selectedMediaFile = null;
   if (isMobileView()) setMobileChatOpen(true);
@@ -179,11 +183,10 @@ async function openChat(partnerId, partnerName, partnerRole, isOnline) {
       <button class="chat-back-btn" onclick="closeChatMobile()" title="Back to chats">←</button>
       <div class="cw-avatar">
         <span>${initials}</span>
-        <span style="position:absolute;bottom:2px;right:2px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;background:${currentPartner.isOnline ? '#22c55e' : '#94a3b8'};"></span>
       </div>
       <div class="cw-info">
         <strong>${escapeHtml(partnerName)}</strong>
-        <small id="partnerStatus">${currentPartner.isOnline ? 'Online' : 'Offline'}</small>
+        <small>Chat</small>
       </div>
       ${currentUser.role === 'user' ? `<a href="provider-profile.html?id=${partnerId}" class="btn-ghost" style="margin-left:auto;font-size:.82rem;">View Profile</a>` : ''}
     </div>
@@ -373,6 +376,54 @@ function messagePreview(msg) {
   return `${text.substring(0, 35)}${text.length > 35 ? '...' : ''}`;
 }
 
+function updateConversationPreview(message) {
+  const senderId = message.sender?._id || message.sender;
+  const receiverId = message.receiver?._id || message.receiver;
+  const otherId = senderId === currentUser._id ? receiverId : senderId;
+  if (!otherId) return;
+
+  const idx = conversations.findIndex(c => c.user?._id === otherId);
+  if (idx >= 0) {
+    const next = { ...conversations[idx], lastMessage: message };
+    if (senderId !== currentUser._id) {
+      next.unreadCount = (next.unreadCount || 0) + 1;
+    }
+    conversations.splice(idx, 1);
+    conversations.unshift(next);
+  } else {
+    let otherUser = null;
+    if (senderId === currentUser._id && currentPartner && currentPartner._id === otherId) {
+      otherUser = { ...currentPartner };
+    } else if (message.sender && typeof message.sender === 'object' && message.sender._id === otherId) {
+      otherUser = {
+        _id: message.sender._id,
+        name: message.sender.name || 'User',
+        avatar: message.sender.avatar || '',
+        role: currentPartner?._id === otherId ? currentPartner.role : ''
+      };
+    }
+    if (otherUser) {
+      conversations.unshift({
+        user: otherUser,
+        lastMessage: message,
+        unreadCount: senderId === currentUser._id ? 0 : 1
+      });
+    }
+  }
+
+  const qEl = document.getElementById('chatSearch');
+  const q = qEl ? qEl.value.toLowerCase() : '';
+  const filtered = q ? conversations.filter(c => c.user?.name?.toLowerCase().includes(q)) : conversations;
+  renderConversations(filtered);
+}
+
+function getSocketBaseUrl() {
+  if (typeof API_BASE === 'string' && API_BASE.includes('/api')) {
+    return API_BASE.replace(/\/api\/?$/, '');
+  }
+  return window.location.origin;
+}
+
 const urlWith = new URLSearchParams(window.location.search).get('with');
 
 initSocket();
@@ -384,12 +435,12 @@ loadConversations().then(() => {
       const data = await api.getMessages(urlWith);
       const partnerData = data.otherUser;
       if (partnerData) {
-        openChat(partnerData._id, partnerData.name, partnerData.role, partnerData.isOnline);
+        openChat(partnerData._id, partnerData.name, partnerData.role);
       }
     } catch (e) {
       if (currentUser.role === 'user') {
         const conv = conversations.find(c => c.user?._id === urlWith);
-        if (conv) openChat(conv.user._id, conv.user.name, conv.user.role, conv.user.isOnline);
+        if (conv) openChat(conv.user._id, conv.user.name, conv.user.role);
       }
     }
   }, 500);

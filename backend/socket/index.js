@@ -1,5 +1,4 @@
 const Message = require('../models/Message');
-const User = require('../models/User');
 
 const getRoom = (a, b) => [a, b].sort().join('_');
 
@@ -14,8 +13,6 @@ module.exports = (io) => {
       if (!userId) return;
       onlineUsers.set(userId, socket.id);
       socket.userId = userId;
-      await User.findByIdAndUpdate(userId, { isOnline: true, lastSeen: new Date() });
-      io.emit('user:status', { userId, isOnline: true });
     });
 
     socket.on('chat:join', ({ userId, partnerId }) => {
@@ -35,11 +32,9 @@ module.exports = (io) => {
       socket.to(room).emit('chat:read', { userId });
     });
 
-    socket.on('disconnect', async () => {
+    socket.on('disconnect', () => {
       if (socket.userId) {
         onlineUsers.delete(socket.userId);
-        await User.findByIdAndUpdate(socket.userId, { isOnline: false, lastSeen: new Date() });
-        io.emit('user:status', { userId: socket.userId, isOnline: false });
       }
     });
   });
