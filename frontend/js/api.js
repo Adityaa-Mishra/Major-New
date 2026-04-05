@@ -271,4 +271,3 @@ window.categoryIcon = categoryIcon;
 window.renderStars = renderStars;
 window.requireAuth = requireAuth;
 window.logout = logout;
-```
