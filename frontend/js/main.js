@@ -3,11 +3,27 @@ document.querySelectorAll('.reveal, .reveal-right, .reveal-left').forEach(el => 
   el.classList.add('visible');
 });
 
-// ===== NAVBAR SCROLL =====
+// ===== NAVBAR SCROLL (throttled for performance) =====
+const nav = document.getElementById('navbar');
+let navScrollTicking = false;
+let navWasScrolled = false;
+
+function syncNavbarScrollState() {
+  navScrollTicking = false;
+  if (!nav) return;
+  const isScrolled = window.scrollY > 20;
+  if (isScrolled === navWasScrolled) return;
+  navWasScrolled = isScrolled;
+  nav.classList.toggle('scrolled', isScrolled);
+}
+
 window.addEventListener('scroll', () => {
-  const nav = document.getElementById('navbar');
-  if (nav) nav.classList.toggle('scrolled', window.scrollY > 20);
+  if (navScrollTicking) return;
+  navScrollTicking = true;
+  window.requestAnimationFrame(syncNavbarScrollState);
 }, { passive: true });
+
+syncNavbarScrollState();
 
 // ===== AUTH NAVBAR UPDATE =====
 function updateNavAuth() {
